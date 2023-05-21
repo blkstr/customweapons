@@ -115,6 +115,14 @@ bool IsEntityWeapon(int entity)
     return !StrContains(classname, "weapon_");
 }
 
+bool IsEntityKnife(int entity)
+{
+	char classname[32];
+	GetEntityClassname(entity, classname, sizeof(classname));
+
+	return StrContains(classname, "knife") != -1 || StrContains(classname, "bayonet") != -1;
+}
+
 // Retrieves a model precache index.
 // This is efficient since extra 'PrecacheModel()' function call isn't necessary here.
 // Returns INVALID_STRING_INDEX if the model isn't precached.

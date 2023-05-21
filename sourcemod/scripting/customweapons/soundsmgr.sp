@@ -19,6 +19,7 @@ void SoundsManagerHooks()
 
     // Hook shots temp entity to prevent their sound effect. (CTEFireBullets)
     AddTempEntHook("Shotgun Shot", Hook_OnShotgunShot);
+    AddNormalSoundHook(Hook_NormalSound);
 }
 
 // Client side.
@@ -77,6 +78,38 @@ Action Timer_ToggleDefaultSounds(Handle timer, DataPack dp)
 }
 
 // Server side.
+public Action Hook_NormalSound( int clients[MAXPLAYERS],
+                                int& numClients,
+                                char sample[PLATFORM_MAX_PATH],
+                                int& entity,
+                                int& channel,
+                                float& volume,
+                                int& level,
+                                int& pitch,
+                                int& flags,
+                                char soundEntry[PLATFORM_MAX_PATH],
+                                int& seed)
+{
+    int attacker = GetEntPropEnt(entity, Prop_Data, "m_hOwnerEntity");
+
+    if (!IsEntityKnife(entity)) 
+    {
+        return Plugin_Continue;
+    }
+    
+    if (!IsClientConnected(attacker) || !(1 <= attacker <= MaxClients))
+    {
+        return Plugin_Continue;
+    }
+
+    if(!HandleCustomSound(attacker, entity))
+    {
+        return Plugin_Continue;
+    }
+    
+    return Plugin_Stop;
+}
+
 Action Hook_OnShotgunShot(const char[] teName, const int[] players, int numClients, float delay)
 {
     int client = TE_ReadNum("m_iPlayer") + 1;
@@ -95,12 +128,23 @@ Action Hook_OnShotgunShot(const char[] teName, const int[] players, int numClien
         return Plugin_Continue;
     }
 
+    if(!HandleCustomSound(client, weapon))
+    {
+        return Plugin_Continue;
+    }
+
+    // Block the original sound
+    return Plugin_Stop;
+}
+
+bool HandleCustomSound(int client, int weapon)
+{
     // Try to retrieve and validate the weapon customization data.
     // If it failed, that means that there are no customizations applied on this weapon.
     CustomWeaponData custom_weapon_data;
     if (!custom_weapon_data.GetMyself(weapon) || !custom_weapon_data.HasCustomShotSound())
     {
-        return Plugin_Continue;
+        return false;
     }
 
     if (Call_OnSound(client, weapon, custom_weapon_data.shot_sound) >= Plugin_Handled)
@@ -109,7 +153,7 @@ Action Hook_OnShotgunShot(const char[] teName, const int[] players, int numClien
 
         g_Players[client].default_sounds_enabled = false;
 
-        return Plugin_Continue;
+        return false;
     }
 
     float origin[3];
@@ -117,8 +161,7 @@ Action Hook_OnShotgunShot(const char[] teName, const int[] players, int numClien
 
     EmitShotSound(custom_weapon_data.shot_sound, client, origin, 0.2);
 
-    // Block the original sound
-    return Plugin_Stop;
+    return true;
 }
 
 // Wraps between game sounds and third party sounds.
